@@ -1126,5 +1126,726 @@ print(pipeline_prompt.format(
 
 # Serialization
 
-It is often preferrable to store prompts not as python code but as files. This can make it easy to share, store, and version prompts. This notebook covers how to do that in LangChain, walking through all the different types of prompts and the different serialization options.
+It is often preferrable to store prompts not as python code but as files. This notebook covers how to do that in LangChain, walking through all the different types of prompts and the different serialization options.
+
+At a high level, the following design principles are applied to serialization:
+
+1.  Both JSON and YAML are supported.
+    
+2.  We support specifying everything in one file, or storing different components (templates, examples, etc) in different files and referencing them. LangChain supports both.
+    
+
+There is also a single entry point to load prompts from disk, making it easy to load any type of prompt.
+
+```
+# All prompts are loaded through the `load_prompt` function.
+from langchain.prompts import load_prompt
+```
+
+## PromptTemplate
+
+This section covers examples for loading a PromptTemplate.
+
+### Loading from YAML
+
+This shows an example of loading a PromptTemplate from YAML.
+
+```
+cat simple_prompt.yaml
+```
+
+```
+    _type: prompt    
+    input_variables:        
+        ["adjective", "content"]    
+    template:         
+        Tell me a {adjective} joke about {content}.
+```
+
+```
+prompt = load_prompt("simple_prompt.yaml")
+print(prompt.format(adjective="funny", content="chickens"))
+```
+
+```
+    Tell me a funny joke about chickens.
+```
+
+### Loading from JSON
+
+This shows an example of loading a PromptTemplate from JSON.
+
+```
+cat simple_prompt.json
+```
+
+```
+    {        
+        "_type": "prompt",
+                "input_variables": ["adjective", "content"],
+                        "template": "Tell me a {adjective} joke about {content}."
+    }
+```
+
+```
+prompt = load_prompt("simple_prompt.json")
+print(prompt.format(adjective="funny", content="chickens"))
+```
+
+Tell me a funny joke about chickens.
+
+### Loading template from a file
+
+This shows an example of storing the template in a separate file and then referencing it in the config. Notice that the key changes from `template` to `template_path`.
+
+```
+cat simple_template.txt
+```
+
+```
+    Tell me a {adjective} joke about {content}.
+```
+
+```
+cat simple_prompt_with_template_file.json
+```
+
+```
+    {
+        "_type": "prompt",        
+        "input_variables": ["adjective", "content"],        
+        "template_path": "simple_template.txt"    
+    }
+```
+
+```
+prompt = load_prompt("simple_prompt_with_template_file.json")
+print(prompt.format(adjective="funny", content="chickens"))
+```
+
+```
+    Tell me a funny joke about chickens.
+```
+
+## FewShotPromptTemplate
+
+This section covers examples for loading few-shot prompt templates.
+
+### Examples
+
+This shows an example of what examples stored as json might look like.
+
+```
+cat examples.json
+```
+
+```
+    [        
+        {"input": "happy", "output": "sad"},        
+        {"input": "tall", "output": "short"}    
+    ]
+```
+
+And here is what the same examples stored as yaml might look like.
+
+```
+cat examples.yaml
+```
+
+```
+    - input: happy      
+      output: sad    
+    - input: tall      
+      output: short
+```
+
+### Loading from YAML
+
+This shows an example of loading a few-shot example from YAML.
+
+```
+cat few_shot_prompt.yaml
+```
+
+```
+    _type: few_shot    
+    input_variables:        
+        ["adjective"]    
+    prefix:         
+        Write antonyms for the following words.    
+    example_prompt:        
+    _type: prompt        
+    input_variables:            
+        ["input", "output"]        
+    template:            
+        "Input: {input}\nOutput: {output}"    
+    examples:        
+        examples.json    
+    suffix:        
+        "Input: {adjective}\nOutput:"
+```
+
+```
+prompt = load_prompt("few_shot_prompt.yaml")
+print(prompt.format(adjective="funny"))
+```
+
+```
+    Write antonyms for the following words.        
+    
+    Input: happy    
+    Output: sad        
+    
+    Input: tall    
+    Output: short        
+    
+    Input: funny    
+    Output:
+```
+
+The same would work if you loaded examples from the yaml file.
+
+```
+cat few_shot_prompt_yaml_examples.yaml
+```
+
+```
+    _type: few_shot    
+    input_variables:        
+        ["adjective"]    
+    prefix:         
+        Write antonyms for the following words.    
+    example_prompt:        
+        _type: prompt        
+        input_variables:            
+            ["input", "output"]        
+        template:            
+            "Input: {input}\nOutput: {output}"    
+    examples:        
+        examples.yaml    
+    suffix:        
+        "Input: {adjective}\nOutput:"
+```
+
+```
+prompt = load_prompt("few_shot_prompt_yaml_examples.yaml")
+print(prompt.format(adjective="funny"))
+```
+
+```
+    Write antonyms for the following words.        Input: happy    Output: sad        Input: tall    Output: short        Input: funny    Output:
+```
+
+### Loading from JSON[]
+
+This shows an example of loading a few-shot example from JSON.
+
+```
+cat few_shot_prompt.json
+```
+
+```
+    {        
+        "_type": "few_shot",        
+        "input_variables": ["adjective"],        
+        "prefix": "Write antonyms for the following words.",        
+        "example_prompt": {            
+            "_type": "prompt",            
+            "input_variables": ["input", "output"],            
+            "template": "Input: {input}\nOutput: {output}"  
+        },        
+        "examples": "examples.json",        
+        "suffix": "Input: {adjective}\nOutput:"    
+    }   
+```
+
+```
+prompt = load_prompt("few_shot_prompt.json")
+print(prompt.format(adjective="funny"))
+```
+
+```
+    Write antonyms for the following words.        
+    
+    Input: happy    
+    Output: sad        
+    
+    Input: tall    
+    Output: short        
+    
+    Input: funny    
+    Output:
+```
+
+### Examples in the config
+
+This shows an example of referencing the examples directly in the config.
+
+```
+cat few_shot_prompt_examples_in.json
+```
+
+```
+    {        
+        "_type": "few_shot",        
+        "input_variables": ["adjective"],        
+        "prefix": "Write antonyms for the following words.",        
+        "example_prompt": {            
+            "_type": "prompt",            
+            "input_variables": ["input", "output"],            
+            "template": "Input: {input}\nOutput: {output}"        
+        },        
+        "examples": [            
+            {"input": "happy", "output": "sad"},            
+            {"input": "tall", "output": "short"}        
+        ],        
+        "suffix": "Input: {adjective}\nOutput:"    
+    }   
+```
+
+```
+prompt = load_prompt("few_shot_prompt_examples_in.json")
+print(prompt.format(adjective="funny"))
+```
+
+```
+    Write antonyms for the following words.        
+    
+    Input: happy    
+    Output: sad        
+    
+    Input: tall    
+    Output: short        
+    
+    Input: funny    
+    Output:
+```
+
+### Example prompt from a file
+
+This shows an example of loading the PromptTemplate that is used to format the examples from a separate file. Note that the key changes from `example_prompt` to `example_prompt_path`.
+
+```
+cat example_prompt.json
+```
+
+```
+    {        
+        "_type": "prompt",        
+        "input_variables": ["input", "output"],        
+        "template": "Input: {input}\nOutput: {output}"     
+    }
+```
+
+```
+cat few_shot_prompt_example_prompt.json
+```
+
+```
+    {        
+        "_type": "few_shot",        
+        "input_variables": ["adjective"],        
+        "prefix": "Write antonyms for the following words.",        
+        "example_prompt_path": "example_prompt.json",        
+        "examples": "examples.json",        
+        "suffix": "Input: {adjective}\nOutput:"    }   
+```
+
+```
+prompt = load_prompt("few_shot_prompt_example_prompt.json")
+print(prompt.format(adjective="funny"))
+```
+
+```
+    Write antonyms for the following words.        
+    
+    Input: happy    
+    Output: sad        
+    
+    Input: tall    
+    Output: short        
+    
+    Input: funny    
+    Output:
+```
+
+## PromptTemplate with OutputParser
+
+This shows an example of loading a prompt along with an OutputParser from a file.
+
+```
+cat prompt_with_output_parser.json
+```
+
+```
+    {       
+        "input_variables": [            
+            "question",            
+            "student_answer"        
+        ],        
+        "output_parser": {            
+            "regex": "(.*?)\\nScore: (.*)",            
+            "output_keys": [                
+                "answer",                
+                "score"            
+            ],            
+            "default_output_key": null,            
+            "_type": "regex_parser"        
+        },        
+        "partial_variables": {},        
+        "template": "Given the following question and student answer, provide a correct answer and score the student answer.\nQuestion: {question}\nStudent Answer: {student_answer}\nCorrect Answer:",        
+        "template_format": "f-string",        
+        "validate_template": true,        
+        "_type": "prompt"    
+    }
+```
+
+```
+prompt = load_prompt("prompt_with_output_parser.json")
+```
+
+```
+prompt.output_parser.parse(    
+    "George Washington was born in 1732 and died in 1799.\nScore: 1/2"
+)
+```
+
+```
+    {'answer': 'George Washington was born in 1732 and died in 1799.',     'score': '1/2'}
+```
+# Prompt pipelining
+
+The idea behind prompt pipelining is to provide a user friendly interface for composing different parts of prompts together. You can do this with either string prompts or chat prompts.
+
+## String prompt pipelining
+
+When working with string prompts, each template is joined togther. You can work with either prompts directly or strings (the first element in the list needs to be a prompt).
+
+```
+from langchain.prompts import PromptTemplate
+```
+
+```
+prompt = (    
+    PromptTemplate.from_template("Tell me a joke about {topic}")    
+    + ", make it funny"    
+    + "\n\nand in {language}")
+```
+
+```
+prompt
+```
+
+```
+    PromptTemplate(
+        input_variables=['language', 'topic'], 
+        output_parser=None, partial_variables={}, 
+        template='Tell me a joke about {topic}, make it funny\n\nand in {language}', 
+        template_format='f-string', validate_template=True
+    )
+```
+
+```
+prompt.format(topic="sports", language="spanish")
+```
+
+```
+    'Tell me a joke about sports, make it funny\n\nand in spanish'
+```
+
+You can also use it in an LLMChain, just like before.
+
+```
+from langchain.chat_models import ChatOpenAI
+from langchain.chains import LLMChain
+```
+
+```
+model = ChatOpenAI()
+```
+
+```
+chain = LLMChain(llm=model, prompt=prompt)
+```
+
+```
+chain.run(topic="sports", language="spanish")
+```
+
+```
+    '¿Por qué el futbolista llevaba un paraguas al partido?\n\nPorque pronosticaban lluvia de goles.'
+```
+
+## Chat prompt pipelining
+
+A chat prompt is made up a of a list of messages. In this pipeline, each new element is a new message in the final prompt.
+
+```
+from langchain.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
+from langchain.schema import HumanMessage, AIMessage, SystemMessage
+```
+First, let's initialize the base ChatPromptTemplate with a system message. It doesn't have to start with a system, but it's often good practice
+
+```
+prompt = SystemMessage(content="You are a nice pirate")
+```
+
+You can then easily create a pipeline combining it with other messages _or_ message templates. Use a `Message` when there is no variables to be formatted, use a `MessageTemplate` when there are variables to be formatted. You can also use just a string (note: this will automatically get inferred as a HumanMessagePromptTemplate.)
+
+```
+new_prompt = (    
+    prompt    
+    + HumanMessage(content="hi")    
+    + AIMessage(content="what?")    
+    + "{input}"
+)
+```
+
+Under the hood, this creates an instance of the `ChatPromptTemplate` class, so you can use it just as you did before!
+
+```
+new_prompt.format_messages(input="i said hi")
+```
+
+```
+    [
+        SystemMessage(content='You are a nice pirate', additional_kwargs={}),     
+        HumanMessage(content='hi', additional_kwargs={}, example=False),     
+        AIMessage(content='what?', additional_kwargs={}, example=False),     
+        HumanMessage(content='i said hi', additional_kwargs={}, example=False)
+    ]
+```
+
+You can also use it in an LLMChain, just like before.
+
+```
+from langchain.chat_models import ChatOpenAI
+from langchain.chains import LLMChain
+```
+```
+model = ChatOpenAI()
+```
+
+```
+chain = LLMChain(llm=model, prompt=new_prompt)
+```
+
+```
+chain.run("i said hi")
+```
+
+```
+    'Oh, hello! How can I assist you today?'
+```
+# Validate template
+
+By default, `PromptTemplate` will validate the `template` string by checking whether the `input_variables` match the variables defined in `template`. You can disable this behavior by setting `validate_template` to `False`.
+
+```
+template = "I am learning langchain because {reason}."
+
+prompt_template = PromptTemplate(template=template,                                 
+                                input_variables=["reason", "foo"]) # ValueError due to extra variables
+prompt_template = PromptTemplate(template=template,                                 
+                                 input_variables=["reason","foo"],                                 
+                                 validate_template=False) # No error
+```
+# Example selectors
+
+If you have a large number of examples, you may need to select which ones to include in the prompt. The Example Selector is the class responsible for doing so.
+
+The base interface is defined as below:
+
+```
+class BaseExampleSelector(ABC):    
+    """Interface for selecting examples to include in prompts."""    
+
+    @abstractmethod    
+    def select_examples(self, input_variables: Dict[str, str]) -> List[dict]:        
+        """Select which examples to use based on the inputs."""
+```
+
+The only method it needs to define is a `select_examples` method. This takes in the input variables and then returns a list of examples. It is up to each specific implementation as to how those examples are selected.
+
+# Custom example selector
+
+In this tutorial, we'll create a custom example selector that selects examples randomly from a given list of examples.
+
+An `ExampleSelector` must implement two methods:
+
+1.  An `add_example` method which takes in an example and adds it into the ExampleSelector
+2.  A `select_examples` method which takes in input variables (which are meant to be user input) and returns a list of examples to use in the few-shot prompt.
+
+Let's implement a custom `ExampleSelector` that just selects two examples at random.
+
+## Implement custom example selector
+
+```
+from langchain.prompts.example_selector.base import BaseExampleSelector
+from typing import Dict, List
+import numpy as np
+
+class CustomExampleSelector(BaseExampleSelector):        
+    
+    def __init__(self, examples: List[Dict[str, str]]):        
+        self.examples = examples        
+        
+    def add_example(self, example: Dict[str, str]) -> None:        
+        """Add new example to store for a key."""        
+        self.examples.append(example)    
+        
+    def select_examples(self, input_variables: Dict[str, str]) -> List[dict]:        
+        """Select which examples to use based on the inputs."""        
+        return np.random.choice(self.examples, size=2, replace=False)
+```
+
+## Use custom example selector
+
+```
+examples = [    
+    {"foo": "1"},    
+    {"foo": "2"},    
+    {"foo": "3"}
+]
+
+# Initialize example selector.
+example_selector = CustomExampleSelector(examples)
+
+# Select examples
+example_selector.select_examples({"foo": "foo"})
+# -> array([{'foo': '2'}, {'foo': '3'}], dtype=object)
+
+# Add new example to the set of examples
+example_selector.add_example({"foo": "4"})
+example_selector.examples
+# -> [{'foo': '1'}, {'foo': '2'}, {'foo': '3'}, {'foo': '4'}]
+
+# Select examples
+example_selector.select_examples({"foo": "foo"})
+# -> array([{'foo': '1'}, {'foo': '4'}], dtype=object)
+```
+# Select by length
+
+This example selector selects which examples to use based on length. This is useful when you are worried about constructing a prompt that will go over the length of the context window. For longer inputs, it will select fewer examples to include, while for shorter inputs it will select more.
+
+```
+from langchain.prompts import PromptTemplate
+from langchain.prompts import FewShotPromptTemplate
+from langchain.prompts.example_selector import LengthBasedExampleSelector
+
+# Examples of a pretend task of creating antonyms.
+examples = [   
+    {"input": "happy", "output": "sad"},    
+    {"input": "tall", "output": "short"},    
+    {"input": "energetic", "output": "lethargic"},    
+    {"input": "sunny", "output": "gloomy"},    
+    {"input": "windy", "output": "calm"},
+]
+
+example_prompt = PromptTemplate(    
+    input_variables=["input", "output"],    
+    template="Input: {input}\nOutput: {output}",
+)
+
+example_selector = LengthBasedExampleSelector(    
+    # The examples it has available to choose from.    
+    examples=examples,     
+    # The PromptTemplate being used to format the examples.    
+    example_prompt=example_prompt,     
+    # The maximum length that the formatted examples should be.    
+    # Length is measured by the get_text_length function below.    
+    max_length=25,    
+    # The function used to get the length of a string, which is used    
+    # to determine which examples to include. It is commented out because    
+    # it is provided as a default value if none is specified.    
+    # get_text_length: Callable[[str], int] = lambda x: len(re.split("\n| ", x))
+)
+
+dynamic_prompt = FewShotPromptTemplate(    
+    # We provide an ExampleSelector instead of examples.    
+    example_selector=example_selector,    
+    example_prompt=example_prompt,    
+    prefix="Give the antonym of every input",    
+    suffix="Input: {adjective}\nOutput:",     
+    input_variables=["adjective"],
+)
+```
+
+```
+# An example with small input, so it selects all examples.
+print(dynamic_prompt.format(adjective="big"))
+```
+
+```
+    Give the antonym of every input        
+    
+    Input: happy    Output: sad        
+    Input: tall    Output: short        
+    
+    Input: energetic    
+    Output: lethargic        
+    
+    Input: sunny    
+    Output: gloomy        
+    
+    Input: windy    
+    Output: calm        
+    
+    Input: big    
+    Output:
+```
+
+```
+# An example with long input, so it selects only one example.
+long_string = "big and huge and massive and large and gigantic and tall and much much much much much bigger than everything else"
+print(dynamic_prompt.format(adjective=long_string))
+```
+
+```
+    Give the antonym of every input        
+    
+    Input: happy    
+    Output: sad
+
+    Input: big and huge and massive and large and gigantic and tall and much much much much much bigger than everything else    
+    Output:
+```
+
+```
+# You can add an example to an example selector as well.
+new_example = {"input": "big", "output": "small"}
+dynamic_prompt.example_selector.add_example(new_example)
+print(dynamic_prompt.format(adjective="enthusiastic"))
+```
+
+```
+    Give the antonym of every input        
+    
+    Input: happy    
+    Output: sad        
+    
+    Input: tall    
+    Output: short        
+    
+    Input: energetic    
+    Output: lethargic        
+    
+    Input: sunny    
+    Output: gloomy        
+    
+    Input: windy    
+    Output: calm        
+    
+    Input: big    
+    Output: small        
+    
+    Input: enthusiastic    
+    Output:
+```
+
+# Select by maximal marginal relevance (MMR)
+
+# Select by n-gram overlap
+
+# Select by similarity
 
